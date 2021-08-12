@@ -72,21 +72,78 @@ class FENLayer(nn.Layer):
                  sparse_feature_num,
                  sparse_feature_dim,
                  dense_feature_dim,
-                 fen_layers_size):
+                 fen_layers_size,
+                 dense_layers_size,
+                 batch_size):
         super(FENLayer, self).__init__()
         self.sparse_field_num = sparse_field_num
         self.sparse_feature_num = sparse_feature_num
         self.sparse_feature_dim = sparse_feature_dim
         self.dense_feature_dim = dense_feature_dim
         self.fen_layers_size = fen_layers_size
+        self.dense_layers_size = dense_layers_size
+        self.batch_size = batch_size
 
         self.fen_mlp = MLPLayer(input_shape=(sparse_field_num + 1) * sparse_feature_dim,
                                 units_list=fen_layers_size)
 
-        self.sparse_embedding = ;
+        self.sparse_embedding = paddle.nn.Embedding(num_embeddings=self.sparse_feature_num,
+                                                    embedding_dim=self.sparse_feature_dim,
+                                                    sparse=True,
+                                                    weight_attr=paddle.ParamAttr(
+                                                        name="SparseFeatFactors",
+                                                        initializer=paddle.nn.initializer.Uniform()))
+        self.sparse_weight = paddle.nn.Embedding(num_embeddings=self.sparse_feature_num,
+                                                 embedding_dim=1,
+                                                 sparse=True,
+                                                 weight_attr=paddle.ParamAttr(
+                                                     name="SparseFeatFactors2",
+                                                     initializer=paddle.nn.initializer.Uniform()))
+        self.dense_linear = paddle.nn.Linear(in_features=self.dense_feature_dim,
+                                             out_features=1)
+        self.dense_mlp = MLPLayer(input_shape=self.dense_feature_dim,
+                                  units_list=self.dense_layers_size,
+                                  last_action="relu")
 
-    def forward(self, dense_inputs, sparse_inputs):
-        pass
+    def forward(self, sparse_inputs, dense_inputs):
+        # ------------------ first order ------------------------------------
+        # (batch_size, sparse_field_num)
+        sparse_inputs_concat = paddle.concat(sparse_inputs, axis=1)
+        # (batch_size, sparse_field_num, 1)
+        sparse_emb_one = self.sparse_weight(sparse_inputs_concat)
+        # (batch_size, sparse_field_num)
+        sparse_emb_one = paddle.squeeze(sparse_emb_one, axis=-1)
+
+        # (batch_size, 1)
+        dense_emb_one = self.dense_linear(dense_inputs)
+
+        # (batch_size, (sparse_field_num + 1))
+        feat_emb_one = paddle.concat([dense_emb_one, sparse_emb_one], axis=1)
+
+        # -------------------- fen layer ------------------------------------
+        # (batch_size, embedding_size)
+        dense_embedding = self.dense_mlp(dense_inputs)
+        dense_embedding = paddle.unsqueeze(dense_embedding, axis=1)
+
+        # (batch_size, sparse_field_num, embedding_size)
+        sparse_embedding = self.sparse_embedding(sparse_inputs_concat)
+
+        # (batch_size, (sparse_field_num + 1), embedding_size)
+        feat_embeddings = paddle.concat([dense_embedding, sparse_embedding], axis=1)
+
+        # (batch_size, -1)
+        # feat_embeddings = paddle.reshape(feat_embeddings, shape=(self.batch_size, -1))
+        # (batch_size, (sparse_field_num + 1))
+        m_x = Fun.softmax(self.fen_mlp(paddle.reshape(feat_embeddings, shape=(self.batch_size, -1))))
+
+        # (batch_size, (sparse_field_num + 1))
+        feat_emb_one = feat_emb_one * m_x
+        # (batch_size, (sparse_field_num + 1), embedding_size)
+        feat_embeddings = feat_embeddings * m_x
+
+        # (batch_size, 1)
+        first_order = paddle.sum(feat_emb_one, axis=1, keepdim=True)
+        return first_order, feat_embeddings
 
 
 class FMLayer(nn.Layer):
@@ -96,18 +153,11 @@ class FMLayer(nn.Layer):
                                             shape=[1],
                                             dtype='float32')
 
-    def forward(self, first_order, dense_features, sparse_features):
+    def forward(self, first_order, combined_features):
         """
         first_order: FM first order (batch_size, 1)
-        dense_features: FM dense features (batch_size, embedding_size)
-        sparse_features: FM sparse features (batch_size, field_num, embedding_size)
+        combined_features: FM sparse features (batch_size, sparse_field_num + 1, embedding_size)
         """
-        # (batch_size, 1, embedding_size)
-        dense_features = paddle.unsqueeze(dense_features, axis=1)
-
-        # (batch_size, (1 + field_num), embedding_size)
-        combined_features = paddle.concat([dense_features, sparse_features], axis=1)
-
         # sum square part
         # (batch_size, embedding_size)
         summed_features_emb = paddle.sum(combined_features, axis=1)
@@ -124,6 +174,33 @@ class FMLayer(nn.Layer):
         return Fun.sigmoid(logits)
 
 
+class IFM(nn.Layer):
+    def __init__(self,
+                 sparse_field_num,
+                 sparse_feature_num,
+                 sparse_feature_dim,
+                 dense_feature_dim,
+                 fen_layers_size,
+                 dense_layers_size,
+                 batch_size):
+        super(IFM, self).__init__()
+        self.sparse_field_num = sparse_field_num
+        self.sparse_feature_num = sparse_feature_num
+        self.sparse_feature_dim = sparse_feature_dim
+        self.dense_feature_dim = dense_feature_dim
+        self.fen_layers_size = fen_layers_size
+        self.dense_layers_size = dense_layers_size
+        self.batch_size = batch_size
+        self.fen_layer = FENLayer(sparse_field_num=self.sparse_field_num,
+                                  sparse_feature_num=self.sparse_feature_num,
+                                  sparse_feature_dim=self.sparse_feature_dim,
+                                  dense_feature_dim=self.dense_feature_dim,
+                                  fen_layers_size=self.fen_layers_size,
+                                  dense_layers_size=self.dense_layers_size,
+                                  batch_size=self.batch_size)
+        self.fm_layer = FMLayer()
 
-
+    def forward(self, sparse_inputs, dense_inputs):
+        first_order, combined_features = self.fen_layer(sparse_inputs, dense_inputs)
+        return self.fm_layer(first_order, combined_features)
 

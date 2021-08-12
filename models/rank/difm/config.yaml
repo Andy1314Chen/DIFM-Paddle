@@ -46,13 +46,9 @@ hyper_parameters:
     learning_rate: 0.001
     strategy: async
   # user-defined <key, value> pairs
-  sparse_inputs_slots: 27
-  fc_sizes: [512, 256, 128, 32]
-  distributed_embedding: 0
-
-  dense_input_dim: 13
-  bot_layer_sizes: [512, 256, 64, 16]
-  sparse_feature_number: 1000001
+  sparse_field_num: 26
+  sparse_feature_num: 1000001
   sparse_feature_dim: 16
-  top_layer_sizes: [512, 256, 2]
-  num_field: 26
+  dense_feature_dim: 13
+  fen_layers_size:  [512, 256, 64, 16]
+  dense_layers_size:  [512, 256, 64, 16]

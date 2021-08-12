@@ -23,18 +23,23 @@ import net
 class DygraphModel():
     # define model
     def create_model(self, config):
-        sparse_feature_number = config.get(
-            "hyper_parameters.sparse_feature_number")
+        sparse_field_num = config.get("hyper_parameters.sparse_field_num")
+        sparse_feature_num = config.get("hyper_parameters.sparse_feature_num")
         sparse_feature_dim = config.get("hyper_parameters.sparse_feature_dim")
-        sparse_fea_num = config.get('hyper_parameters.sparse_fea_num')
-        dense_feature_dim = config.get('hyper_parameters.dense_input_dim')
-        sparse_input_slot = config.get('hyper_parameters.sparse_inputs_slots')
+        dense_feature_dim = config.get("hyper_parameters.dense_feature_dim")
+        fen_layers_size = config.get("hyper_parameters.fen_layers_size")
+        dense_layers_size = config.get("hyper_parameters.dense_layers_size")
+        batch_size = config.get("runner.train_batch_size")
 
-        fm_model = None
-        # fm_model = net.FMLayer(sparse_feature_number, sparse_feature_dim,
-        #                        dense_feature_dim, sparse_input_slot - 1)
+        ifm_model = net.IFM(sparse_field_num=sparse_field_num,
+                            sparse_feature_num=sparse_feature_num,
+                            sparse_feature_dim=sparse_feature_dim,
+                            dense_feature_dim=dense_feature_dim,
+                            fen_layers_size=fen_layers_size,
+                            dense_layers_size=dense_layers_size,
+                            batch_size=batch_size)
 
-        return fm_model
+        return ifm_model
 
     # define feeds which convert numpy of batch data to paddle.tensor
     def create_feeds(self, batch_data, config):
