@@ -139,7 +139,7 @@ class FENLayer(nn.Layer):
         # (batch_size, (sparse_field_num + 1))
         feat_emb_one = feat_emb_one * m_x
         # (batch_size, (sparse_field_num + 1), embedding_size)
-        feat_embeddings = feat_embeddings * m_x
+        feat_embeddings = feat_embeddings * paddle.unsqueeze(m_x, axis=-1)
 
         # (batch_size, 1)
         first_order = paddle.sum(feat_emb_one, axis=1, keepdim=True)
