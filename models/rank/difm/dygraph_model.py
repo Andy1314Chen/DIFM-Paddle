@@ -31,9 +31,11 @@ class DygraphModel():
         dense_feature_dim = config.get('hyper_parameters.dense_input_dim')
         sparse_input_slot = config.get('hyper_parameters.sparse_inputs_slots')
 
-        dnn_model = net.DNNLayer(sparse_feature_number, sparse_feature_dim,
-                                 dense_feature_dim, sparse_input_slot - 1,
-                                 fc_sizes)
+        dnn_model = None
+
+        # dnn_model = net.DNNLayer(sparse_feature_number, sparse_feature_dim,
+        #                          dense_feature_dim, sparse_input_slot - 1,
+        #                          fc_sizes)
         return dnn_model
 
     # define feeds which convert numpy of batch data to paddle.tensor

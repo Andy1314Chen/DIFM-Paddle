@@ -18,12 +18,20 @@ runner:
   train_reader_path: "criteo_reader" # importlib format
   use_gpu: True
   use_auc: True
+<<<<<<< HEAD:models/rank/xdeepfm/config.yaml
   train_batch_size: 5
   epochs: 1
   print_interval: 2
   #model_init_path: "output_model/0" # init model
   model_save_path: "output_model_deepfm"
   test_data_dir: "data/sample_data/train"
+=======
+  train_batch_size: 2048
+  epochs: 1
+  print_interval: 256
+  model_save_path: "output_model_dlrm"
+  infer_batch_size: 256
+>>>>>>> main:models/rank/dlrm/config_bigdata.yaml
   infer_reader_path: "criteo_reader" # importlib format
   infer_batch_size: 5
   infer_load_path: "output_model_deepfm"
