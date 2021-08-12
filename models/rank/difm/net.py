@@ -18,6 +18,77 @@ import paddle.nn.functional as Fun
 import math
 
 
+class MLPLayer(nn.Layer):
+    def __init__(self, input_shape, units_list=None, l2=0.01, last_action=None, **kwargs):
+        super(MLPLayer, self).__init__(**kwargs)
+
+        if units_list is None:
+            units_list = [128, 128, 64]
+        units_list = [input_shape] + units_list
+
+        self.units_list = units_list
+        self.l2 = l2
+        self.mlp = []
+        self.last_action = last_action
+
+        for i, unit in enumerate(units_list[:-1]):
+            if i != len(units_list) - 1:
+                dense = paddle.nn.Linear(in_features=unit,
+                                         out_features=units_list[i + 1],
+                                         weight_attr=paddle.ParamAttr(
+                                             initializer=paddle.nn.initializer.Normal(std=1.0 / math.sqrt(unit))))
+                self.mlp.append(dense)
+                self.add_sublayer('dense_%d' % i, dense)
+
+                relu = paddle.nn.ReLU()
+                self.mlp.append(relu)
+                self.add_sublayer('relu_%d' % i, relu)
+
+                norm = paddle.nn.BatchNorm1D(units_list[i + 1])
+                self.mlp.append(norm)
+                self.add_sublayer('norm_%d' % i, norm)
+            else:
+                dense = paddle.nn.Linear(in_features=unit,
+                                         out_features=units_list[i + 1],
+                                         weight_attr=paddle.nn.initializer.Normal(std=1.0 / math.sqrt(unit)))
+                self.mlp.append(dense)
+                self.add_sublayer('dense_%d' % i, dense)
+
+                if last_action is not None:
+                    relu = paddle.nn.ReLU()
+                    self.mlp.append(relu)
+                    self.add_sublayer('relu_%d' % i, relu)
+
+    def forward(self, inputs):
+        outputs = inputs
+        for n_layer in self.mlp:
+            outputs = n_layer(outputs)
+        return outputs
+
+
+class FENLayer(nn.Layer):
+    def __init__(self,
+                 sparse_field_num,
+                 sparse_feature_num,
+                 sparse_feature_dim,
+                 dense_feature_dim,
+                 fen_layers_size):
+        super(FENLayer, self).__init__()
+        self.sparse_field_num = sparse_field_num
+        self.sparse_feature_num = sparse_feature_num
+        self.sparse_feature_dim = sparse_feature_dim
+        self.dense_feature_dim = dense_feature_dim
+        self.fen_layers_size = fen_layers_size
+
+        self.fen_mlp = MLPLayer(input_shape=(sparse_field_num + 1) * sparse_feature_dim,
+                                units_list=fen_layers_size)
+
+        self.sparse_embedding = ;
+
+    def forward(self, dense_inputs, sparse_inputs):
+        pass
+
+
 class FMLayer(nn.Layer):
     def __init__(self):
         super(FMLayer, self).__init__()
@@ -51,6 +122,7 @@ class FMLayer(nn.Layer):
         logits = first_order + 0.5 * paddle.sum(summed_features_emb_square - squared_sum_features_emb, axis=1,
                                                 keepdim=True) + self.bias
         return Fun.sigmoid(logits)
+
 
 
 
