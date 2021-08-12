@@ -26,17 +26,17 @@ class DygraphModel():
         sparse_feature_number = config.get(
             "hyper_parameters.sparse_feature_number")
         sparse_feature_dim = config.get("hyper_parameters.sparse_feature_dim")
-        fc_sizes = config.get("hyper_parameters.fc_sizes")
         sparse_fea_num = config.get('hyper_parameters.sparse_fea_num')
         dense_feature_dim = config.get('hyper_parameters.dense_input_dim')
         sparse_input_slot = config.get('hyper_parameters.sparse_inputs_slots')
 
-        dnn_model = net.DNNLayer(sparse_feature_number, sparse_feature_dim,
-                                 dense_feature_dim, sparse_input_slot - 1,
-                                 fc_sizes)
-        return dnn_model
+        ffm_model = net.FFMLayer(sparse_feature_number, sparse_feature_dim,
+                                 dense_feature_dim,
+                                 sparse_input_slot - 1 + dense_feature_dim)
 
-    # define feeds which convert numpy of batch data to paddle.tensor
+        return ffm_model
+
+    # define feeds which convert numpy of batch data to paddle.tensor 
     def create_feeds(self, batch_data, config):
         dense_feature_dim = config.get('hyper_parameters.dense_input_dim')
         sparse_tensor = []
@@ -49,13 +49,14 @@ class DygraphModel():
         return label, sparse_tensor[1:], dense_tensor
 
     # define loss function by predicts and label
-    def create_loss(self, raw_predict_2d, label):
-        cost = paddle.nn.functional.cross_entropy(
-            input=raw_predict_2d, label=label)
+    def create_loss(self, pred, label):
+        cost = paddle.nn.functional.log_loss(
+            input=pred, label=paddle.cast(
+                label, dtype="float32"))
         avg_cost = paddle.mean(x=cost)
         return avg_cost
 
-    # define optimizer
+    # define optimizer 
     def create_optimizer(self, dy_model, config):
         lr = config.get("hyper_parameters.optimizer.learning_rate", 0.001)
         optimizer = paddle.optimizer.Adam(
@@ -70,20 +71,18 @@ class DygraphModel():
         metrics_list = [auc_metric]
         return metrics_list, metrics_list_name
 
-    # construct train forward phase
+    # construct train forward phase  
     def train_forward(self, dy_model, metrics_list, batch_data, config):
         label, sparse_tensor, dense_tensor = self.create_feeds(batch_data,
                                                                config)
 
-        raw_pred_2d = dy_model.forward(sparse_tensor, dense_tensor)
-        loss = self.create_loss(raw_pred_2d, label)
+        pred = dy_model.forward(sparse_tensor, dense_tensor)
+        loss = self.create_loss(pred, label)
         # update metrics
-
-
-        predict_2d = paddle.nn.functional.softmax(raw_pred_2d)
+        predict_2d = paddle.concat(x=[1 - pred, pred], axis=1)
         metrics_list[0].update(preds=predict_2d.numpy(), labels=label.numpy())
 
-        # print_dict format :{'loss': loss}
+        # print_dict format :{'loss': loss} 
         print_dict = None
         return loss, metrics_list, print_dict
 
@@ -91,8 +90,8 @@ class DygraphModel():
         label, sparse_tensor, dense_tensor = self.create_feeds(batch_data,
                                                                config)
 
-        raw_pred_2d = dy_model.forward(sparse_tensor, dense_tensor)
+        pred = dy_model.forward(sparse_tensor, dense_tensor)
         # update metrics
-        predict_2d = paddle.nn.functional.softmax(raw_pred_2d)
+        predict_2d = paddle.concat(x=[1 - pred, pred], axis=1)
         metrics_list[0].update(preds=predict_2d.numpy(), labels=label.numpy())
         return metrics_list, None
