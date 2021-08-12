@@ -17,17 +17,17 @@
 
 
 runner:
-  train_data_dir: "data/data103052/slot_train_data_full"
+  train_data_dir: "/home/aistudio/data/data103052/slot_train_data_full"
   train_reader_path: "criteo_reader" # importlib format
   use_gpu: True
   use_auc: True
   train_batch_size: 2048
   epochs: 3
-  print_interval: 10
+  print_interval: 100
   model_save_path: "output_model_difm"
   infer_batch_size: 2048
   infer_reader_path: "criteo_reader" # importlib format
-  test_data_dir: "data/data103052/slot_test_data_full"
+  test_data_dir: "/home/aistudio/data/data103052/slot_test_data_full"
   infer_load_path: "output_model_difm"
   infer_start_epoch: 0
   infer_end_epoch: 3

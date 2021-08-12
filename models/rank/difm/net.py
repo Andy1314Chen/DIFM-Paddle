@@ -85,7 +85,8 @@ class FENLayer(nn.Layer):
         self.batch_size = batch_size
 
         self.fen_mlp = MLPLayer(input_shape=(sparse_field_num + 1) * sparse_feature_dim,
-                                units_list=fen_layers_size)
+                                units_list=fen_layers_size,
+                                last_action="relu")
 
         self.sparse_embedding = paddle.nn.Embedding(num_embeddings=self.sparse_feature_num,
                                                     embedding_dim=self.sparse_feature_dim,
@@ -104,6 +105,9 @@ class FENLayer(nn.Layer):
         self.dense_mlp = MLPLayer(input_shape=self.dense_feature_dim,
                                   units_list=self.dense_layers_size,
                                   last_action="relu")
+        self.dnn_mlp = MLPLayer(input_shape=self.sparse_feature_dim,
+                                units_list=[1],
+                                last_action="relu")
 
     def forward(self, sparse_inputs, dense_inputs):
         # ------------------ first order ------------------------------------
@@ -123,6 +127,7 @@ class FENLayer(nn.Layer):
         # -------------------- fen layer ------------------------------------
         # (batch_size, embedding_size)
         dense_embedding = self.dense_mlp(dense_inputs)
+        dnn_logits = self.dnn_mlp(dense_embedding)
         dense_embedding = paddle.unsqueeze(dense_embedding, axis=1)
 
         # (batch_size, sparse_field_num, embedding_size)
@@ -143,7 +148,7 @@ class FENLayer(nn.Layer):
 
         # (batch_size, 1)
         first_order = paddle.sum(feat_emb_one, axis=1, keepdim=True)
-        return first_order, feat_embeddings
+        return dnn_logits, first_order, feat_embeddings
 
 
 class FMLayer(nn.Layer):
@@ -153,7 +158,7 @@ class FMLayer(nn.Layer):
                                             shape=[1],
                                             dtype='float32')
 
-    def forward(self, first_order, combined_features):
+    def forward(self, dnn_logits, first_order, combined_features):
         """
         first_order: FM first order (batch_size, 1)
         combined_features: FM sparse features (batch_size, sparse_field_num + 1, embedding_size)
@@ -170,7 +175,7 @@ class FMLayer(nn.Layer):
 
         # (batch_size, 1)
         logits = first_order + 0.5 * paddle.sum(summed_features_emb_square - squared_sum_features_emb, axis=1,
-                                                keepdim=True) + self.bias
+                                                keepdim=True) + self.bias + dnn_logits
         return Fun.sigmoid(logits)
 
 
@@ -201,6 +206,6 @@ class IFM(nn.Layer):
         self.fm_layer = FMLayer()
 
     def forward(self, sparse_inputs, dense_inputs):
-        first_order, combined_features = self.fen_layer(sparse_inputs, dense_inputs)
-        return self.fm_layer(first_order, combined_features)
+        dnn_logits, first_order, combined_features = self.fen_layer(sparse_inputs, dense_inputs)
+        return self.fm_layer(dnn_logits, first_order, combined_features)
 
