@@ -51,5 +51,7 @@ hyper_parameters:
   sparse_feature_num: 1000001
   sparse_feature_dim: 16
   dense_feature_dim: 13
+  att_factor_dim: 80
+  att_head_num: 16
   fen_layers_size:  [512, 256, 64, 27]
   dense_layers_size:  [512, 256, 64, 16]

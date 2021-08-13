@@ -139,16 +139,16 @@ class FENLayer(nn.Layer):
         # (batch_size, -1)
         # feat_embeddings = paddle.reshape(feat_embeddings, shape=(self.batch_size, -1))
         # (batch_size, (sparse_field_num + 1))
-        m_x = Fun.softmax(self.fen_mlp(paddle.reshape(feat_embeddings, shape=(self.batch_size, -1))))
+        m_x = self.fen_mlp(paddle.reshape(feat_embeddings, shape=(self.batch_size, -1)))
 
-        # (batch_size, (sparse_field_num + 1))
-        feat_emb_one = feat_emb_one * m_x
-        # (batch_size, (sparse_field_num + 1), embedding_size)
-        feat_embeddings = feat_embeddings * paddle.unsqueeze(m_x, axis=-1)
-
-        # (batch_size, 1)
-        first_order = paddle.sum(feat_emb_one, axis=1, keepdim=True)
-        return dnn_logits, first_order, feat_embeddings
+        # # (batch_size, (sparse_field_num + 1))
+        # feat_emb_one = feat_emb_one * m_x
+        # # (batch_size, (sparse_field_num + 1), embedding_size)
+        # feat_embeddings = feat_embeddings * paddle.unsqueeze(m_x, axis=-1)
+        #
+        # # (batch_size, 1)
+        # first_order = paddle.sum(feat_emb_one, axis=1, keepdim=True)
+        return dnn_logits, feat_emb_one, feat_embeddings, m_x
 
 
 class FMLayer(nn.Layer):
@@ -179,6 +179,71 @@ class FMLayer(nn.Layer):
         return Fun.sigmoid(logits)
 
 
+class MultiHeadAttentionLayer(nn.Layer):
+    def __init__(self,
+                 att_factor_dim,
+                 att_head_num,
+                 sparse_feature_dim,
+                 sparse_field_num,
+                 batch_size):
+        super(MultiHeadAttentionLayer, self).__init__()
+        self.att_factor_dim = att_factor_dim
+        self.att_head_num = att_head_num
+        self.sparse_feature_dim = sparse_feature_dim
+        self.sparse_field_num = sparse_field_num
+        self.batch_size = batch_size
+
+        self.W_Query = paddle.create_parameter(default_initializer=nn.initializer.TruncatedNormal(),
+                                               shape=[self.sparse_feature_dim, self.att_factor_dim * self.att_head_num],
+                                               dtype='float32')
+        self.W_Key = paddle.create_parameter(default_initializer=nn.initializer.TruncatedNormal(),
+                                             shape=[self.sparse_feature_dim, self.att_factor_dim * self.att_head_num],
+                                             dtype='float32')
+        self.W_Value = paddle.create_parameter(default_initializer=nn.initializer.TruncatedNormal(),
+                                               shape=[self.sparse_feature_dim, self.att_factor_dim * self.att_head_num],
+                                               dtype='float32')
+        self.W_Res = paddle.create_parameter(default_initializer=nn.initializer.TruncatedNormal(),
+                                             shape=[self.sparse_feature_dim, self.att_factor_dim * self.att_head_num],
+                                             dtype='float32')
+        self.dnn_layer = MLPLayer(input_shape=(self.sparse_field_num + 1) * self.att_factor_dim * self.att_head_num,
+                                  units_list=[self.sparse_field_num + 1],
+                                  last_action="relu")
+
+    def forward(self, combined_features):
+        """
+        combined_features: (batch_size, (sparse_field_num + 1), embedding_size)
+        W_Query: (embedding_size, factor_dim * att_head_num)
+        (b, f, e) * (e, d*h) -> (b, f, d*h)
+        """
+        # (b, f, d*h)
+        querys = paddle.matmul(combined_features, self.W_Query)
+        keys = paddle.matmul(combined_features, self.W_Key)
+        values = paddle.matmul(combined_features, self.W_Value)
+
+        # (h, b, f, d) <- (b, f, d)
+        querys = paddle.stack(paddle.split(querys, self.att_head_num, axis=2))
+        keys = paddle.stack(paddle.split(keys, self.att_head_num, axis=2))
+        values = paddle.stack(paddle.split(values, self.att_head_num, axis=2))
+
+        # (h, b, f, f)
+        inner_product = paddle.matmul(querys, keys, transpose_y=True)
+        inner_product /= self.att_factor_dim ** 0.5
+        normalized_att_scores = Fun.softmax(inner_product)
+
+        # (h, b, f, d)
+        result = paddle.matmul(normalized_att_scores, values)
+        result = paddle.concat(paddle.split(result, self.att_head_num, axis=0), axis=-1)
+
+        # (b, f, h * d)
+        result = paddle.squeeze(result, axis=0)
+        result += paddle.matmul(combined_features, self.W_Res)
+
+        # (b, f * h * d)
+        result = paddle.reshape(result, shape=(self.batch_size, -1))
+        m_vec = self.dnn_layer(result)
+        return m_vec
+
+
 class IFM(nn.Layer):
     def __init__(self,
                  sparse_field_num,
@@ -206,6 +271,65 @@ class IFM(nn.Layer):
         self.fm_layer = FMLayer()
 
     def forward(self, sparse_inputs, dense_inputs):
-        dnn_logits, first_order, combined_features = self.fen_layer(sparse_inputs, dense_inputs)
-        return self.fm_layer(dnn_logits, first_order, combined_features)
+        dnn_logits, feat_emb_one, feat_embeddings, m_x = self.fen_layer(sparse_inputs, dense_inputs)
 
+        m_x = Fun.softmax(m_x)
+
+        # (batch_size, (sparse_field_num + 1))
+        feat_emb_one = feat_emb_one * m_x
+        # (batch_size, (sparse_field_num + 1), embedding_size)
+        feat_embeddings = feat_embeddings * paddle.unsqueeze(m_x, axis=-1)
+
+        # (batch_size, 1)
+        first_order = paddle.sum(feat_emb_one, axis=1, keepdim=True)
+
+        return self.fm_layer(dnn_logits, first_order, feat_embeddings)
+
+
+class DIFM(nn.Layer):
+    def __init__(self,
+                 sparse_field_num,
+                 sparse_feature_num,
+                 sparse_feature_dim,
+                 dense_feature_dim,
+                 fen_layers_size,
+                 dense_layers_size,
+                 att_factor_dim,
+                 att_head_num,
+                 batch_size):
+        super(DIFM, self).__init__()
+        self.sparse_field_num = sparse_field_num
+        self.sparse_feature_num = sparse_feature_num
+        self.sparse_feature_dim = sparse_feature_dim
+        self.dense_feature_dim = dense_feature_dim
+        self.fen_layers_size = fen_layers_size
+        self.dense_layers_size = dense_layers_size
+        self.att_factor_dim = att_factor_dim
+        self.att_head_num = att_head_num
+        self.batch_size = batch_size
+
+        self.fen_layer = FENLayer(sparse_field_num=self.sparse_field_num,
+                                  sparse_feature_num=self.sparse_feature_num,
+                                  sparse_feature_dim=self.sparse_feature_dim,
+                                  dense_feature_dim=self.dense_feature_dim,
+                                  fen_layers_size=self.fen_layers_size,
+                                  dense_layers_size=self.dense_layers_size,
+                                  batch_size=self.batch_size)
+        self.fm_layer = FMLayer()
+        self.mha_layer = MultiHeadAttentionLayer(att_factor_dim=self.att_factor_dim,
+                                                 att_head_num=self.att_head_num,
+                                                 sparse_feature_dim=self.sparse_feature_dim,
+                                                 sparse_field_num=self.sparse_field_num,
+                                                 batch_size=self.batch_size)
+
+    def forward(self, sparse_inputs, dense_inputs):
+        dnn_logits, feat_emb_one, feat_embeddings, m_bit = self.fen_layer(sparse_inputs, dense_inputs)
+        m_vec = self.mha_layer(feat_embeddings)
+        m = m_vec + m_bit
+
+        feat_emb_one = feat_emb_one * m
+        feat_embeddings = feat_embeddings * paddle.unsqueeze(m, axis=-1)
+
+        first_order = paddle.sum(feat_emb_one, axis=1, keepdim=True)
+
+        return self.fm_layer(dnn_logits, first_order, feat_embeddings)

@@ -30,16 +30,29 @@ class DygraphModel():
         fen_layers_size = config.get("hyper_parameters.fen_layers_size")
         dense_layers_size = config.get("hyper_parameters.dense_layers_size")
         batch_size = config.get("runner.train_batch_size")
+        att_factor_dim = config.get("hyper_parameters.att_factor_dim")
+        att_head_num = config.get("hyper_parameters.att_head_num")
 
-        ifm_model = net.IFM(sparse_field_num=sparse_field_num,
-                            sparse_feature_num=sparse_feature_num,
-                            sparse_feature_dim=sparse_feature_dim,
-                            dense_feature_dim=dense_feature_dim,
-                            fen_layers_size=fen_layers_size,
-                            dense_layers_size=dense_layers_size,
-                            batch_size=batch_size)
+        # ifm_model = net.IFM(sparse_field_num=sparse_field_num,
+        #                     sparse_feature_num=sparse_feature_num,
+        #                     sparse_feature_dim=sparse_feature_dim,
+        #                     dense_feature_dim=dense_feature_dim,
+        #                     fen_layers_size=fen_layers_size,
+        #                     dense_layers_size=dense_layers_size,
+        #                     batch_size=batch_size)
+        #
+        # return ifm_model
 
-        return ifm_model
+        difm_model = net.DIFM(sparse_field_num=sparse_field_num,
+                              sparse_feature_num=sparse_feature_num,
+                              sparse_feature_dim=sparse_feature_dim,
+                              dense_feature_dim=dense_feature_dim,
+                              fen_layers_size=fen_layers_size,
+                              dense_layers_size=dense_layers_size,
+                              att_factor_dim=att_factor_dim,
+                              att_head_num=att_head_num,
+                              batch_size=batch_size)
+        return difm_model
 
     # define feeds which convert numpy of batch data to paddle.tensor
     def create_feeds(self, batch_data, config):
