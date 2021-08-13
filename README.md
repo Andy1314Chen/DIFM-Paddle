@@ -1,39 +1,41 @@
-<<<<<<< HEAD
-=======
-## DLRM
+## DIFM
 
 ### 一、简介
 
-本项目是基于 PaddleRec 框架对 2019 年 Facebook 提出的 DLRM CTR 排序算法进行复现。
+本项目是基于 PaddleRec 框架对 DIFM CTR 预估算法进行复现。
 
-论文：[Deep Learning Recommendation Model for Personalization and Recommendation Systems](https://arxiv.org/pdf/1906.00091v1.pdf)
+论文：[A Dual Input-aware Factorization Machine for CTR Prediction](https://www.ijcai.org/Proceedings/2020/0434.pdf)
 
+![DIFM](https://tva1.sinaimg.cn/large/008i3skNly1gtffgzgk1bj30kq0e8wfz.jpg)
 
-![DLRM](https://tva1.sinaimg.cn/large/008i3skNly1gt8kwo40g9j30ei0cmjru.jpg)
+上图为 DIFM 的网络结构图，paper 题目中所指的 Dual-FEN 即是 `vector-wise` 和 `bit-wise`两个 Input-aware Factorization 模块, 一个是 bit-wise,
+一个是 vector-wise, 实现的直觉是一样的，只是维度上不同。bit-wise 维度会对某一个 sparse embedding 向量内部彼此进行交叉，而 vector-wise 仅仅处理
+embedding 向量维度交叉。把 vector-wise FEN 去掉，就退化为 IFM 模型了，该模型也是论文作者实验组的大作，其结构图如下：
 
+![IFM](https://tva1.sinaimg.cn/large/008i3skNly1gtffi72287j60ez0cwq3p02.jpg)
 
-推荐 rank 模型一般较为简单，如上图 DLRM 的网络结构看着和 DNN 就没啥区别，主要由四个基础模块构成，`Embeddings`、 `Matrix Factorization`、`Factorization Machine`和`Multilayer Perceptrons`。
+两类不同维度的 FEN(Factor Estimating Net) 其实结果都是输出对 Embedding Layer 相应向量的权重，假设上游有 n 个 sparse features， 则 FEN 输出结果
+为 [a1, a2, ..., an]. 在 Reweighting Layer 中，对原始输入进行权重调整。最后输入到 FM 层进行特征交叉，输出预测结果。因此，总结两篇论文步骤如下：
 
-DLRM 模型的特征输入，主要包括 dense 数值型和 sparse 类别型两种特征。dense features 直接连接 MLP（如图中的蓝色三角形），
-sparse features 经由 embedding 层查找得到相应的 embedding 向量。Interactions 层进行特征交叉（包含 dense features 和 sparse features 的交叉及
-sparse features之间的交叉等），与因子分解机 FM 有些类似。
-
-DLRM 模型中所有的 sparse features 的 embedding 向量长度均是相等的，且dense features 经由 MLP 也转化成相同的维度。这点是理解该模型代码的关键。
-
-- dense features 经过 MLP (bottom-MLP) 处理为同样维度的向量
-- spare features 经由 lookup 获得统一维度的 embedding 向量（可选择每一特征对应的 embedding 是否经过 MLP 处理）
-- dense features & sparse features 的向量两两之间进行 dot product 交叉
-- 交叉结果再和 dense 向量 concat 一起输入到顶层 MLP (top-MLP)  
-- 经过 sigmoid 函数激活得到点击概率
+- sparse features 经由 Embedding Layer 查表得到 embedding 向量，dense features 特征如何处理两篇论文都没提及；
+- sparse features 对应的一阶权重也可以通过 1 维 Embedding Layer 查找；
+- sparse embeddings 输入 FEN (bit-wise or vector-wise)，得到特征对应的权重 [a1, a2, ..., an]；
+- Reweighting Layer 根据特征权重，对 sparse embeddings 进一步调整；
+- FM Layer 进行特征交叉，输出预测概率
 
 
 ### 二、复现精度
 
-原论文意在介绍 DLRM 的网络结构，对模型参数并未进行细致调节，与 baseline DCN 算法对比实验结果中如下所示：
+本项目实现了 IFM 和 DIFM，在 IFM 基础上增加了 deep layer 用于处理 dense features, 记作 IFM-plus. 在 DIFM 论文中，两种算法在 Criteo 数据集的表现如下：
 
-![实验结果](https://tva1.sinaimg.cn/large/008i3skNly1gta7vj34mkj30ty0c8abt.jpg)
+![](https://tva1.sinaimg.cn/large/008i3skNly1gtfg698y4nj30bo06tdgp.jpg)
 
-在 Kaggle Criteo 数据集上，不同梯度更新方法结果不同，复现精度 AUC > 0.79 & Accuracy > 0.79.
+本次 PaddlePaddle 论文复现赛要求在 Kaggle Criteo 数据集上，DIFM 的复现精度为 AUC > 0.799. 
+
+实际本项目复现精度为：
+- IFM：AUC = 0.8016
+- IFM-plus: AUC = 0.8010 (测试集每个 epoch 均超过 0.8) 
+- DIFM: AUC = 
 
 ### 三、数据集
 
@@ -59,19 +61,20 @@ DLRM 模型中所有的 sparse features 的 embedding 向量长度均是相等�
 
 该小节操作建议在百度 AI-Studio NoteBook 中进行执行。
 
-AIStudio 项目链接：[https://aistudio.baidu.com/aistudio/projectdetail/2263714](https://aistudio.baidu.com/aistudio/projectdetail/2263714), 可以 fork 一下。
+AIStudio 项目链接：[x](x), 可以 fork 一下。
 
 #### 1. AI-Studio 快速复现步骤
+(约 6 个小时，可以直接在 notebook 切换版本加载预训练模型文件)
 
 ```
 ################# Step 1, git clone code ################
-# 当前处于 /home/aistudio 目录, 代码存放在 /home/work/rank/DLRM-Paddle 中
+# 当前处于 /home/aistudio 目录, 代码存放在 /home/work/rank/DIFM-Paddle 中
 
 import os
-if not os.path.isdir('work/rank/DLRM-Paddle'):
+if not os.path.isdir('work/rank/DIFM-Paddle'):
     if not os.path.isdir('work/rank'):
         !mkdir work/rank
-    !cd work/rank && git clone https://hub.fastgit.org/Andy1314Chen/DLRM-Paddle.git
+    !cd work/rank && git clone https://hub.fastgit.org/Andy1314Chen/DIFM-Paddle.git
 
 ################# Step 2, download data ################
 # 当前处于 /home/aistudio 目录，数据存放在 /home/data/criteo 中
@@ -89,7 +92,7 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 
 ################## Step 3, train model ##################
 # 启动训练脚本 (需注意当前是否是 GPU 环境）
-!cd work/rank/DLRM-Paddle && sh run.sh config_bigdata
+!cd work/rank/DIFM-Paddle && sh run.sh config_bigdata
 
 ```
 
@@ -106,10 +109,10 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 ```
 
 #### 3. 使用预训练模型进行预测
-- 复现 DLRM 保存了训练好的模型文件，链接: https://pan.baidu.com/s/1EXnl9KlzTRehuxlQ70lUCQ  密码: msr1
-- 解压后放在 tools 同级目录下，再利用以下命令可以快速验证测试集 AUC：
+- 在 notebook 中切换到 V1.0 版本，加载预训练模型文件，可快速验证测试集 AUC；
+- ！！注意 config_bigdata.yaml 的 `use_gpu` 配置需要与当前运行环境保存一致 
 ```
-!cd /home/aistudio/work/rank/DLRM-Paddle && python -u tools/infer.py -m models/rank/dlrm/config_bigdata.yaml
+!cd /home/aistudio/work/rank/DIFM-Paddle && python -u tools/infer.py -m models/rank/difm/config_bigdata.yaml
 ```
 
 ### 六、代码结构与详细说明
@@ -118,20 +121,15 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 ```
 |--models
   |--rank
-    |--dlrm                   # 本项目核心代码
+    |--difm                   # 本项目核心代码
       |--data                 # 采样小数据集
       |--config.yaml          # 采样小数据集模型配置
       |--config_bigdata.yaml  # Kaggle Criteo 全量数据集模型配置
       |--criteo_reader.py     # dataset加载类            
       |--dygraph_model.py     # PaddleRec 动态图模型训练类
-      |--net.py               # dlrm 核心算法代码，包括 dlrm 组网等
+      |--net.py               # difm 核心算法代码，包括 difm 组网、ifm 组网等
 |--tools                      # PaddleRec 工具类
 |--LICENSE                    # 项目 LICENSE
 |--README.md                  # readme
-|--README-old.md              # 原始 readme
-|--README_CN.md               # PaddleRec 中文 readme
-|--README_EN.md               # PaddleRec 英文 readme
 |--run.sh                     # 项目执行脚本(需在 aistudio notebook 中运行)
 ```
-
->>>>>>> main
