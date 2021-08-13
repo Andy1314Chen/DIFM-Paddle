@@ -136,18 +136,9 @@ class FENLayer(nn.Layer):
         # (batch_size, (sparse_field_num + 1), embedding_size)
         feat_embeddings = paddle.concat([dense_embedding, sparse_embedding], axis=1)
 
-        # (batch_size, -1)
-        # feat_embeddings = paddle.reshape(feat_embeddings, shape=(self.batch_size, -1))
         # (batch_size, (sparse_field_num + 1))
         m_x = self.fen_mlp(paddle.reshape(feat_embeddings, shape=(self.batch_size, -1)))
 
-        # # (batch_size, (sparse_field_num + 1))
-        # feat_emb_one = feat_emb_one * m_x
-        # # (batch_size, (sparse_field_num + 1), embedding_size)
-        # feat_embeddings = feat_embeddings * paddle.unsqueeze(m_x, axis=-1)
-        #
-        # # (batch_size, 1)
-        # first_order = paddle.sum(feat_emb_one, axis=1, keepdim=True)
         return dnn_logits, feat_emb_one, feat_embeddings, m_x
 
 
@@ -325,7 +316,7 @@ class DIFM(nn.Layer):
     def forward(self, sparse_inputs, dense_inputs):
         dnn_logits, feat_emb_one, feat_embeddings, m_bit = self.fen_layer(sparse_inputs, dense_inputs)
         m_vec = self.mha_layer(feat_embeddings)
-        m = m_vec + m_bit
+        m = Fun.softmax(m_vec + m_bit)
 
         feat_emb_one = feat_emb_one * m
         feat_embeddings = feat_embeddings * paddle.unsqueeze(m, axis=-1)

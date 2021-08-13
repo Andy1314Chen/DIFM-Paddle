@@ -23,6 +23,7 @@ from paddle.io import IterableDataset
 class RecDataset(IterableDataset):
     def __init__(self, file_list, config):
         super(RecDataset, self).__init__()
+        random.seed(163)
         random.shuffle(file_list)
         self.file_list = file_list
         self.init()

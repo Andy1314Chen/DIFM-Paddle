@@ -21,16 +21,16 @@ runner:
   train_reader_path: "criteo_reader" # importlib format
   use_gpu: True
   use_auc: True
-  train_batch_size: 2048
-  epochs: 3
-  print_interval: 10
+  train_batch_size: 2000
+  epochs: 2
+  print_interval: 100
   model_save_path: "output_model_difm"
-  infer_batch_size: 2048
+  infer_batch_size: 2000
   infer_reader_path: "criteo_reader" # importlib format
   test_data_dir: "/home/aistudio/data/criteo/slot_test_data_full"
   infer_load_path: "output_model_difm"
   infer_start_epoch: 0
-  infer_end_epoch: 3
+  infer_end_epoch: 2
 
   # distribute_config
   sync_mode: "async"
@@ -49,9 +49,9 @@ hyper_parameters:
   dense_input_dim: 13
   sparse_field_num: 26
   sparse_feature_num: 1000001
-  sparse_feature_dim: 16
+  sparse_feature_dim: 20 # raw 16
   dense_feature_dim: 13
   att_factor_dim: 80
-  att_head_num: 16
+  att_head_num: 16 # raw 16
   fen_layers_size:  [256, 256, 27]
-  dense_layers_size:  [256, 64, 16]
+  dense_layers_size:  [256, 20] # raw [256, 64, 16]

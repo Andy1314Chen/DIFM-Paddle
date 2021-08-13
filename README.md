@@ -61,7 +61,7 @@ embedding 向量维度交叉。把 vector-wise FEN 去掉，就退化为 IFM 模
 
 该小节操作建议在百度 AI-Studio NoteBook 中进行执行。
 
-AIStudio 项目链接：[x](x), 可以 fork 一下。
+AIStudio 项目链接：[https://aistudio.baidu.com/studio/project/partial/verify/2281174/f15111ff23e74f2dac2d61427f717f3b](https://aistudio.baidu.com/studio/project/partial/verify/2281174/f15111ff23e74f2dac2d61427f717f3b), 可以 fork 一下。
 
 #### 1. AI-Studio 快速复现步骤
 (约 6 个小时，可以直接在 notebook 切换版本加载预训练模型文件)
@@ -133,3 +133,8 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 |--README.md                  # readme
 |--run.sh                     # 项目执行脚本(需在 aistudio notebook 中运行)
 ```
+
+### 七、复现记录
+1. 参考 PaddleRec 中 FM， 实现 IFM 模型，全量 Criteo 测试集上 AUC = 0.8016；
+2. 在 IFM 模型基础上，增加 dnn layer 处理 dense features, 全量 Criteo 测试集上 AUC = 0.8010；
+3. 在 IFM 模型基础上，增加 Muilt Head Self Attention，实现 DIFM；
