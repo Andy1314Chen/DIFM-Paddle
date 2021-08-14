@@ -117,8 +117,18 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 
 #### 4. 最优参数
 
-待补充。。。
-
+```
+  # 原文复现相关参数
+  att_factor_dim: 80
+  att_head_num: 16
+  fen_layers_size:  [256, 256, 27]
+  class: Adam
+  learning_rate: 0.001
+  train_batch_size: 2000
+  epochs: 2
+  
+  # 简单调节 train_batch_size 到 1024，AUC 可以由 0.799941 提升到 0.801587
+```
 ### 六、代码结构与详细说明
 
 代码结构遵循 PaddleRec 框架结构
