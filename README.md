@@ -8,33 +8,34 @@
 
 ![DIFM](https://tva1.sinaimg.cn/large/008i3skNly1gtffgzgk1bj30kq0e8wfz.jpg)
 
-上图为 DIFM 的网络结构图，paper 题目中所指的 Dual-FEN 即是 `vector-wise` 和 `bit-wise`两个 Input-aware Factorization 模块, 一个是 bit-wise,
-一个是 vector-wise, 实现的直觉是一样的，只是维度上不同。bit-wise 维度会对某一个 sparse embedding 向量内部彼此进行交叉，而 vector-wise 仅仅处理
-embedding 向量维度交叉。把 vector-wise FEN 去掉，就退化为 IFM 模型了，该模型也是论文作者实验组的大作，其结构图如下：
+上图为 DIFM 的网络结构图，paper 题目中所指的 Dual-FEN 为 `vector-wise` 和 `bit-wise`两个 Input-aware Factorization 模块, 一个是 bit-wise,
+一个是 vector-wise。只是维度上不同，实现的直觉是一样的。bit-wise 维度会对某一个 sparse embedding 向量内部彼此进行交叉，而 vector-wise 仅仅处理
+embedding 向量层次交叉。把 vector-wise FEN 模块去掉，DIFM 就退化为 IFM 模型了，该算法也是论文作者实验组的大作，其结构图如下：
 
 ![IFM](https://tva1.sinaimg.cn/large/008i3skNly1gtffi72287j60ez0cwq3p02.jpg)
 
-两类不同维度的 FEN(Factor Estimating Net) 其实结果都是输出对 Embedding Layer 相应向量的权重，假设上游有 n 个 sparse features， 则 FEN 输出结果
-为 [a1, a2, ..., an]. 在 Reweighting Layer 中，对原始输入进行权重调整。最后输入到 FM 层进行特征交叉，输出预测结果。因此，总结两篇论文步骤如下：
+两类不同维度的 FEN(Factor Estimating Net) 作用都是一致的，即输出 Embedding Layer 相应向量的权重。举个例子，假设上游有 n 个 sparse features， 
+则 FEN 输出结果为 [a1, a2, ..., an]. 在 Reweighting Layer 中，对原始输入进行权重调整。最后输入到 FM 层进行特征交叉，输出预测结果。因此，总结两篇论文步骤如下：
 
 - sparse features 经由 Embedding Layer 查表得到 embedding 向量，dense features 特征如何处理两篇论文都没提及；
 - sparse features 对应的一阶权重也可以通过 1 维 Embedding Layer 查找；
 - sparse embeddings 输入 FEN (bit-wise or vector-wise)，得到特征对应的权重 [a1, a2, ..., an]；
-- Reweighting Layer 根据特征权重，对 sparse embeddings 进一步调整；
-- FM Layer 进行特征交叉，输出预测概率
+- Reweighting Layer 根据上一步骤中的特征权重，对 sparse embeddings 进一步调整；
+- FM Layer 进行特征交叉，输出预测概率；
 
 
 ### 二、复现精度
 
-本项目实现了 IFM 和 DIFM，在 IFM 基础上增加了 deep layer 用于处理 dense features, 记作 IFM-plus. 在 DIFM 论文中，两种算法在 Criteo 数据集的表现如下：
+本项目实现了 IFM、 DIFM 以及在 IFM 基础上增加了 deep layer 用于处理 dense features, 记作 IFM-Plus 的三种模型.
+在 DIFM 论文中，两种算法在 Criteo 数据集的表现如下：
 
 ![](https://tva1.sinaimg.cn/large/008i3skNly1gtfg698y4nj30bo06tdgp.jpg)
 
-本次 PaddlePaddle 论文复现赛要求在 Kaggle Criteo 数据集上，DIFM 的复现精度为 AUC > 0.799. 
+本次 PaddlePaddle 论文复现赛要求在 PaddleRec Criteo 数据集上，DIFM 的复现精度为 AUC > 0.799. 
 
 实际本项目复现精度为：
 - IFM：AUC = 0.8016
-- IFM-plus: AUC = 0.8010 (测试集每个 epoch 均超过 0.8) 
+- IFM-Plus: AUC = 0.8010
 - DIFM: AUC = 0.799941
 
 ### 三、数据集
@@ -49,7 +50,11 @@ embedding 向量维度交叉。把 vector-wise FEN 去掉，就退化为 IFM 模
 - train set: 4400, 0000 条
 - test set:   184, 0617 条
 
-本项目采用 PaddleRec 所提供的 Criteo 数据集进行复现。
+P.S. 原论文所提及 Criteo 数据集为 Terabyte Criteo 数据集(即包含 1 亿条样本)，但作者并未使用全量数据，而是采样了连续 8 天数据进行训练和测试。
+这个量级是和 PaddleRec Criteo 数据集是一样的，因此复现过程中直接选择了 PaddleRec 提供的数据。 原文表述如下：
+
+![数据集介绍](https://tva1.sinaimg.cn/large/008i3skNly1gtgdgteholj61g40e6af502.jpg)
+
 
 ### 四、环境依赖
 - 硬件：CPU、GPU
@@ -136,4 +141,5 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 ### 七、复现记录
 1. 参考 PaddleRec 中 FM， 实现 IFM 模型，全量 Criteo 测试集上 AUC = 0.8016；
 2. 在 IFM 模型基础上，增加 dnn layer 处理 dense features, 全量 Criteo 测试集上 AUC = 0.8010；
-3. 在 IFM 模型基础上，增加 Muilt Head Self Attention，实现 DIFM；0.799941
+3. 在 IFM 模型基础上，增加 Multi-Head Self Attention，实现 DIFM；0.799941；
+4. 增加 Multi-Head Self Attention 模块后，会导致模型显著过拟合，需要进一步细致调参，本项目参数直接参考论文默认参数，并未进行细粒度参数调优；
