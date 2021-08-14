@@ -35,7 +35,7 @@ embedding 向量维度交叉。把 vector-wise FEN 去掉，就退化为 IFM 模
 实际本项目复现精度为：
 - IFM：AUC = 0.8016
 - IFM-plus: AUC = 0.8010 (测试集每个 epoch 均超过 0.8) 
-- DIFM: AUC = 
+- DIFM: AUC = 0.799941
 
 ### 三、数据集
 
@@ -61,7 +61,7 @@ embedding 向量维度交叉。把 vector-wise FEN 去掉，就退化为 IFM 模
 
 该小节操作建议在百度 AI-Studio NoteBook 中进行执行。
 
-AIStudio 项目链接：[https://aistudio.baidu.com/studio/project/partial/verify/2281174/f15111ff23e74f2dac2d61427f717f3b](https://aistudio.baidu.com/studio/project/partial/verify/2281174/f15111ff23e74f2dac2d61427f717f3b), 可以 fork 一下。
+AIStudio 项目链接：[https://aistudio.baidu.com/studio/project/partial/verify/2281174/3987013dd88e45ce828d3b9a3f2d24a9](https://aistudio.baidu.com/studio/project/partial/verify/2281174/3987013dd88e45ce828d3b9a3f2d24a9), 可以 fork 一下。
 
 #### 1. AI-Studio 快速复现步骤
 (约 6 个小时，可以直接在 notebook 切换版本加载预训练模型文件)
@@ -99,21 +99,20 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 #### 2. criteo slot_test_data_full 验证集结果
 ```
 ...
-2021-08-11 18:19:45,528 - INFO - epoch: 0, batch_id: 5888, auc: 0.805084,accuracy: 0.793505, avg_reader_cost: 0.02961 sec, avg_batch_cost: 0.05567 sec, avg_samples: 256.00000, ips: 4596.73 ins/s
-2021-08-11 18:19:59,916 - INFO - epoch: 0, batch_id: 6144, auc: 0.805157,accuracy: 0.793632, avg_reader_cost: 0.03085 sec, avg_batch_cost: 0.05618 sec, avg_samples: 256.00000, ips: 4554.94 ins/s
-2021-08-11 18:20:14,480 - INFO - epoch: 0, batch_id: 6400, auc: 0.805081,accuracy: 0.793623, avg_reader_cost: 0.02785 sec, avg_batch_cost: 0.05687 sec, avg_samples: 256.00000, ips: 4499.95 ins/s
-2021-08-11 18:20:30,772 - INFO - epoch: 0, batch_id: 6656, auc: 0.805203,accuracy: 0.793568, avg_reader_cost: 0.02980 sec, avg_batch_cost: 0.06361 sec, avg_samples: 256.00000, ips: 4023.01 ins/s
-2021-08-11 18:20:46,270 - INFO - epoch: 0, batch_id: 6912, auc: 0.805174,accuracy: 0.793536, avg_reader_cost: 0.02354 sec, avg_batch_cost: 0.06051 sec, avg_samples: 256.00000, ips: 4228.88 ins/s
-2021-08-11 18:21:00,821 - INFO - epoch: 0, batch_id: 7168, auc: 0.805253,accuracy: 0.793609, avg_reader_cost: 0.02986 sec, avg_batch_cost: 0.05682 sec, avg_samples: 256.00000, ips: 4504.05 ins/s
-2021-08-11 18:21:01,991 - INFO - epoch: 0 done, auc: 0.805245,accuracy: 0.793599, epoch time: 424.70 s
+2021-08-14 10:53:10,026 - INFO - epoch: 0 done, auc: 0.799622, epoch time: 261.84 s
+2021-08-14 10:57:32,841 - INFO - epoch: 1 done, auc: 0.799941, epoch time: 262.81 s
 ```
 
 #### 3. 使用预训练模型进行预测
-- 在 notebook 中切换到 V1.0 版本，加载预训练模型文件，可快速验证测试集 AUC；
+- 在 notebook 中切换到 `V1.2调参数` 版本，加载预训练模型文件，可快速验证测试集 AUC；
 - ！！注意 config_bigdata.yaml 的 `use_gpu` 配置需要与当前运行环境保存一致 
 ```
 !cd /home/aistudio/work/rank/DIFM-Paddle && python -u tools/infer.py -m models/rank/difm/config_bigdata.yaml
 ```
+
+#### 4. 最优参数
+
+待补充。。。
 
 ### 六、代码结构与详细说明
 
@@ -137,4 +136,4 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 ### 七、复现记录
 1. 参考 PaddleRec 中 FM， 实现 IFM 模型，全量 Criteo 测试集上 AUC = 0.8016；
 2. 在 IFM 模型基础上，增加 dnn layer 处理 dense features, 全量 Criteo 测试集上 AUC = 0.8010；
-3. 在 IFM 模型基础上，增加 Muilt Head Self Attention，实现 DIFM；
+3. 在 IFM 模型基础上，增加 Muilt Head Self Attention，实现 DIFM；0.799941
