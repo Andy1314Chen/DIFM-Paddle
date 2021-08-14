@@ -99,8 +99,8 @@ if not os.path.exists('data/criteo/slot_test_data_full.tar.gz') or not os.path.e
 #### 2. criteo slot_test_data_full 验证集结果
 ```
 ...
-2021-08-14 10:53:10,026 - INFO - epoch: 0 done, auc: 0.799622, epoch time: 261.84 s
-2021-08-14 10:57:32,841 - INFO - epoch: 1 done, auc: 0.799941, epoch time: 262.81 s
+2021-08-14 11:53:10,026 - INFO - epoch: 0 done, auc: 0.799622, epoch time: 261.84 s
+2021-08-14 11:57:32,841 - INFO - epoch: 1 done, auc: 0.799941, epoch time: 262.81 s
 ```
 
 #### 3. 使用预训练模型进行预测
